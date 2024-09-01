@@ -1,7 +1,7 @@
 pub type Block = Vec<Stmt>;
 pub type Program = Vec<Component>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Pair<T> {
     pub lhs: T,
     pub rhs: T,
@@ -14,7 +14,7 @@ pub struct FuncDef {
     pub block: Block,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct FuncCall {
     pub name: String,
     pub args: Vec<Expr>,
@@ -64,7 +64,7 @@ pub enum Stmt {
     Print(Vec<Expr>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Expr {
     // Logical
     Not(Box<Expr>),
@@ -79,16 +79,15 @@ pub enum Expr {
     Mul(Pair<Box<Expr>>),
     Div(Pair<Box<Expr>>),
     Mod(Pair<Box<Expr>>),
-    Pow(Pair<Box<Expr>>),
     Expr(Box<Expr>),
     // Others
     FuncCall(FuncCall),
-    Literal(Literal),
+    Literal(Value),
     Ident(String),
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum Literal {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Value {
     Bool(bool),
     Int(i64),
     Str(String),

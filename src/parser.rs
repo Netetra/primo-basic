@@ -1,5 +1,5 @@
 use crate::ast::{
-    Assign, Block, Component, Elif, Expr, FuncCall, FuncDef, If, Literal, Pair, Program, Stmt,
+    Assign, Block, Component, Elif, Expr, FuncCall, FuncDef, If, Value, Pair, Program, Stmt,
     VarDef,
 };
 
@@ -97,9 +97,6 @@ peg::parser! {
                 l:(@) _ "%" _ r:@
                     { Expr::Mod(Pair { lhs: Box::new(l), rhs: Box::new(r) }) }
                 --
-                l:@ _ "^" _ r:(@)
-                    { Expr::Pow(Pair { lhs: Box::new(l), rhs: Box::new(r) }) }
-                --
                 l:literal()
                     { Expr::Literal(l) }
                 f:func_call()
@@ -109,26 +106,26 @@ peg::parser! {
                 i:ident()
                     { Expr::Ident(i) }
             }
-        pub rule literal() -> Literal
+        pub rule literal() -> Value
             = string() / r#bool() / integer()
-        rule string() -> Literal
+        rule string() -> Value
             = "\"" c:$([^'"']*) "\""
                 {
-                    Literal::Str(c.to_string()
+                    Value::Str(c.to_string()
                         .replace("\\n", "\n")
                         .replace("\\r", "\r")
                         .replace("\\t", "\t")
                         .replace("\\\\", "\\")
                     )
                 }
-        rule integer() -> Literal
+        rule integer() -> Value
             = n:$("-"? ['0'..='9']+)
-                { Literal::Int(n.parse().unwrap()) }
-        rule r#bool() -> Literal
+                { Value::Int(n.parse().unwrap()) }
+        rule r#bool() -> Value
             = "true"
-                { Literal::Bool(true) }
+                { Value::Bool(true) }
             / "false"
-                { Literal::Bool(false) }
+                { Value::Bool(false) }
         // FIXME: 予約済みのキーワードが許可されてる
         pub rule ident() -> String
             = reserved_words()
@@ -187,7 +184,7 @@ peg::parser! {
 #[cfg(test)]
 mod tests {
     use super::primo_parser;
-    use crate::ast::{Assign, Block, Component, Elif, Expr, FuncCall, FuncDef, If, Literal, Pair, Program, Stmt, VarDef};
+    use crate::ast::{Assign, Block, Component, Elif, Expr, FuncCall, FuncDef, If, Value, Pair, Program, Stmt, VarDef};
     use rstest::rstest;
 
     #[rstest]
@@ -252,11 +249,11 @@ mod tests {
         vec![
             Stmt::VarDef(VarDef {
                 name: "x".to_string(),
-                value: Expr::Literal(Literal::Int(0))
+                value: Expr::Literal(Value::Int(0))
             }),
             Stmt::Assign(Assign {
                 name: "x".to_string(),
-                value: Expr::Literal(Literal::Int(1))
+                value: Expr::Literal(Value::Int(1))
             }),
             Stmt::Return(Some(Expr::Ident("x".to_string())))
         ]
@@ -270,11 +267,11 @@ mod tests {
         vec![
             Stmt::VarDef(VarDef {
                 name: "x".to_string(),
-                value: Expr::Literal(Literal::Int(0))
+                value: Expr::Literal(Value::Int(0))
             }),
             Stmt::Assign(Assign {
                 name: "x".to_string(),
-                value: Expr::Literal(Literal::Int(1))
+                value: Expr::Literal(Value::Int(1))
             }),
             Stmt::Return(Some(Expr::Ident("x".to_string())))
         ]
@@ -286,20 +283,20 @@ mod tests {
 
     #[rstest]
     // case 1
-    #[case("1;", Stmt::Expr(Expr::Literal(Literal::Int(1))))]
+    #[case("1;", Stmt::Expr(Expr::Literal(Value::Int(1))))]
     // case 2
     #[case(
         "print \"Hello World!\";",
         Stmt::Print(vec![
-            Expr::Literal(Literal::Str("Hello World!".to_string()))
+            Expr::Literal(Value::Str("Hello World!".to_string()))
         ])
     )]
     // case 3
     #[case(
         "print \"n:\", 10;",
         Stmt::Print(vec![
-            Expr::Literal(Literal::Str("n:".to_string())),
-            Expr::Literal(Literal::Int(10))
+            Expr::Literal(Value::Str("n:".to_string())),
+            Expr::Literal(Value::Int(10))
         ])
     )]
     // case 4
@@ -307,7 +304,7 @@ mod tests {
         "let x = 1;",
         Stmt::VarDef(VarDef {
             name: "x".to_string(),
-            value: Expr::Literal(Literal::Int(1)) 
+            value: Expr::Literal(Value::Int(1)) 
         })
     )]
     // case 5
@@ -315,7 +312,7 @@ mod tests {
         "x = 1;",
         Stmt::Assign(Assign {
             name: "x".to_string(),
-            value: Expr::Literal(Literal::Int(1)) 
+            value: Expr::Literal(Value::Int(1)) 
         })
     )]
     // case 6
@@ -325,7 +322,7 @@ mod tests {
     #[case(
         "if false {}",
         Stmt::If(If {
-            condition: Expr::Literal(Literal::Bool(false)),
+            condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
             elif: None,
             else_block: None
@@ -335,7 +332,7 @@ mod tests {
     #[case(
         "if false {} else {}",
         Stmt::If(If {
-            condition: Expr::Literal(Literal::Bool(false)),
+            condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
             elif: None,
             else_block: Some(vec![])
@@ -345,11 +342,11 @@ mod tests {
     #[case(
         "if false {} elif true {}",
         Stmt::If(If {
-            condition: Expr::Literal(Literal::Bool(false)),
+            condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
             elif: Some(vec![
                 Elif {
-                    condition: Expr::Literal(Literal::Bool(true)),
+                    condition: Expr::Literal(Value::Bool(true)),
                     block: vec![]
                 }
             ]),
@@ -360,15 +357,15 @@ mod tests {
     #[case(
         "if false {} elif false {} elif true {}",
         Stmt::If(If {
-            condition: Expr::Literal(Literal::Bool(false)),
+            condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
             elif: Some(vec![
                 Elif {
-                    condition: Expr::Literal(Literal::Bool(false)),
+                    condition: Expr::Literal(Value::Bool(false)),
                     block: vec![]
                 },
                 Elif {
-                    condition: Expr::Literal(Literal::Bool(true)),
+                    condition: Expr::Literal(Value::Bool(true)),
                     block: vec![]
                 }
             ]),
@@ -379,15 +376,15 @@ mod tests {
     #[case(
         "if false {} elif false {} elif true {} else {}",
         Stmt::If(If {
-            condition: Expr::Literal(Literal::Bool(false)),
+            condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
             elif: Some(vec![
                 Elif {
-                    condition: Expr::Literal(Literal::Bool(false)),
+                    condition: Expr::Literal(Value::Bool(false)),
                     block: vec![]
                 },
                 Elif {
-                    condition: Expr::Literal(Literal::Bool(true)),
+                    condition: Expr::Literal(Value::Bool(true)),
                     block: vec![]
                 }
             ]),
@@ -401,7 +398,7 @@ mod tests {
     // case 14
     #[case("return;", Stmt::Return(None))]
     // case 15
-    #[case("return 1;", Stmt::Return(Some(Expr::Literal(Literal::Int(1)))))]
+    #[case("return 1;", Stmt::Return(Some(Expr::Literal(Value::Int(1)))))]
     fn statement_parse(#[case] input: &str, #[case] excepted: Stmt) {
         let result = primo_parser::statement(input);
         assert_eq!(result.unwrap(), excepted);
@@ -422,8 +419,8 @@ mod tests {
         FuncCall {
             name: "add".to_string(),
             args: vec![
-                Expr::Literal(Literal::Int(1)),
-                Expr::Literal(Literal::Int(2))
+                Expr::Literal(Value::Int(1)),
+                Expr::Literal(Value::Int(2))
             ]
         }
     )]
@@ -436,11 +433,11 @@ mod tests {
                 Expr::FuncCall(FuncCall {
                     name: "add".to_string(),
                     args: vec![
-                        Expr::Literal(Literal::Int(1)),
-                        Expr::Literal(Literal::Int(2)),
+                        Expr::Literal(Value::Int(1)),
+                        Expr::Literal(Value::Int(2)),
                     ]
                 }),
-                Expr::Literal(Literal::Int(3))
+                Expr::Literal(Value::Int(3))
             ]
         }
     )]
@@ -456,8 +453,8 @@ mod tests {
     #[case(
         "1--2",
         Expr::Sub(Pair {
-            lhs: Box::new(Expr::Literal(Literal::Int(1))),
-            rhs: Box::new(Expr::Literal(Literal::Int(-2)))
+            lhs: Box::new(Expr::Literal(Value::Int(1))),
+            rhs: Box::new(Expr::Literal(Value::Int(-2)))
         }))]
     // case 3
     #[case(
@@ -465,11 +462,11 @@ mod tests {
         Expr::Add(Pair {
             lhs: Box::new(Expr::Mul(Pair {
                 lhs: Box::new(Expr::Ident("a".to_string())),
-                rhs: Box::new(Expr::Literal(Literal::Int(1))),
+                rhs: Box::new(Expr::Literal(Value::Int(1))),
             })),
             rhs: Box::new(Expr::Div(Pair {
                 lhs: Box::new(Expr::Ident("b".to_string())),
-                rhs: Box::new(Expr::Literal(Literal::Int(2))),
+                rhs: Box::new(Expr::Literal(Value::Int(2))),
             }))
         })
     )]
@@ -478,10 +475,10 @@ mod tests {
         "1 + a * 2 - b",
         Expr::Sub(Pair {
             lhs: Box::new(Expr::Add(Pair {
-                lhs: Box::new(Expr::Literal(Literal::Int(1))),
+                lhs: Box::new(Expr::Literal(Value::Int(1))),
                 rhs: Box::new(Expr::Mul(Pair {
                     lhs: Box::new(Expr::Ident("a".to_string())),
-                    rhs: Box::new(Expr::Literal(Literal::Int(2)))
+                    rhs: Box::new(Expr::Literal(Value::Int(2)))
                 })),
             })),
             rhs: Box::new(Expr::Ident("b".to_string()))
@@ -489,71 +486,54 @@ mod tests {
     )]
     // case 5
     #[case(
-        "1 + 2 ^ 3 ^ 4 * 5",
-        Expr::Add(Pair {
-            lhs: Box::new(Expr::Literal(Literal::Int(1))),
-            rhs: Box::new(Expr::Mul(Pair {
-                lhs: Box::new(Expr::Pow(Pair {
-                    lhs: Box::new(Expr::Literal(Literal::Int(2))),
-                    rhs: Box::new(Expr::Pow(Pair {
-                        lhs: Box::new(Expr::Literal(Literal::Int(3))),
-                        rhs: Box::new(Expr::Literal(Literal::Int(4)))
-                    }))
-                })),
-                rhs: Box::new(Expr::Literal(Literal::Int(5)))
+        "1 * 2 == 3 / 4",
+        Expr::Eq(Pair {
+            lhs: Box::new(Expr::Mul(Pair {
+                lhs: Box::new(Expr::Literal(Value::Int(1))),
+                rhs: Box::new(Expr::Literal(Value::Int(2)))
+            })),
+            rhs: Box::new(Expr::Div(Pair {
+                lhs: Box::new(Expr::Literal(Value::Int(3))),
+                rhs: Box::new(Expr::Literal(Value::Int(4)))
             }))
         })
     )]
     // case 6
     #[case(
-        "1 * 2 == 3 / 4",
-        Expr::Eq(Pair {
+        "1 * (2 != 3) / 4",
+        Expr::Div(Pair {
             lhs: Box::new(Expr::Mul(Pair {
-                lhs: Box::new(Expr::Literal(Literal::Int(1))),
-                rhs: Box::new(Expr::Literal(Literal::Int(2)))
+                lhs: Box::new(Expr::Literal(Value::Int(1))),
+                rhs: Box::new(Expr::Expr(Box::new(Expr::NotEq(Pair {
+                    lhs: Box::new(Expr::Literal(Value::Int(2))),
+                    rhs: Box::new(Expr::Literal(Value::Int(3)))
+                }))))
             })),
-            rhs: Box::new(Expr::Div(Pair {
-                lhs: Box::new(Expr::Literal(Literal::Int(3))),
-                rhs: Box::new(Expr::Literal(Literal::Int(4)))
-            }))
+            rhs: Box::new(Expr::Literal(Value::Int(4)))
         })
     )]
     // case 7
     #[case(
-        "1 * (2 != 3) / 4",
-        Expr::Div(Pair {
-            lhs: Box::new(Expr::Mul(Pair {
-                lhs: Box::new(Expr::Literal(Literal::Int(1))),
-                rhs: Box::new(Expr::Expr(Box::new(Expr::NotEq(Pair {
-                    lhs: Box::new(Expr::Literal(Literal::Int(2))),
-                    rhs: Box::new(Expr::Literal(Literal::Int(3)))
-                }))))
-            })),
-            rhs: Box::new(Expr::Literal(Literal::Int(4)))
-        })
-    )]
-    // case 8
-    #[case(
         "1 == 2 or 3 != 4",
         Expr::Or(Pair {
             lhs: Box::new(Expr::Eq(Pair {
-                lhs: Box::new(Expr::Literal(Literal::Int(1))),
-                rhs: Box::new(Expr::Literal(Literal::Int(2)))
+                lhs: Box::new(Expr::Literal(Value::Int(1))),
+                rhs: Box::new(Expr::Literal(Value::Int(2)))
             })),
             rhs: Box::new(Expr::NotEq(Pair {
-                lhs: Box::new(Expr::Literal(Literal::Int(3))),
-                rhs: Box::new(Expr::Literal(Literal::Int(4)))
+                lhs: Box::new(Expr::Literal(Value::Int(3))),
+                rhs: Box::new(Expr::Literal(Value::Int(4)))
             }))
         })
     )]
+    // case 8
+    #[case("not true", Expr::Not(Box::new(Expr::Literal(Value::Bool(true)))))]
     // case 9
-    #[case("not true", Expr::Not(Box::new(Expr::Literal(Literal::Bool(true)))))]
-    // case 10
     #[case(
         "not 1 == 2",
         Expr::Not(Box::new(Expr::Eq(Pair {
-            lhs: Box::new(Expr::Literal(Literal::Int(1))),
-            rhs: Box::new(Expr::Literal(Literal::Int(2)))
+            lhs: Box::new(Expr::Literal(Value::Int(1))),
+            rhs: Box::new(Expr::Literal(Value::Int(2)))
         })))
     )]
     fn expr_parse(#[case] input: &str, #[case] excepted: Expr) {
@@ -563,22 +543,22 @@ mod tests {
 
     #[rstest]
     // case 1
-    #[case("\"\"", Literal::Str("".to_string()))]
+    #[case("\"\"", Value::Str("".to_string()))]
     // case 2
-    #[case("\"Hello World!\"", Literal::Str("Hello World!".to_string()))]
+    #[case("\"Hello World!\"", Value::Str("Hello World!".to_string()))]
     // case 3
-    #[case("\"\\t\\r\\n\\\\\"", Literal::Str("\t\r\n\\".to_string()))]
+    #[case("\"\\t\\r\\n\\\\\"", Value::Str("\t\r\n\\".to_string()))]
     // case 4
-    #[case("0", Literal::Int(0))]
+    #[case("0", Value::Int(0))]
     // case 5
-    #[case("10", Literal::Int(10))]
+    #[case("10", Value::Int(10))]
     // case 6
-    #[case("-100", Literal::Int(-100))]
+    #[case("-100", Value::Int(-100))]
     // case 7
-    #[case("true", Literal::Bool(true))]
+    #[case("true", Value::Bool(true))]
     // case 8
-    #[case("false", Literal::Bool(false))]
-    fn literal_parse(#[case] input: &str, #[case] excepted: Literal) {
+    #[case("false", Value::Bool(false))]
+    fn literal_parse(#[case] input: &str, #[case] excepted: Value) {
         let result = primo_parser::literal(input);
         assert_eq!(result.unwrap(), excepted);
     }
