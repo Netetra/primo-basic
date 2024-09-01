@@ -23,7 +23,7 @@ fn main() {
     };
 
     let ast = primo_parser::program(&input).unwrap();
-    println!("AST: {:?}", &ast);
+    // println!("AST: {:?}", &ast);
     let evaluator = Evaluator::new(&ast).unwrap();
     let result = evaluator.eval("main");
     println!("result: {:?}", result);
