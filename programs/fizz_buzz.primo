@@ -1,0 +1,25 @@
+fn main() {
+	let i = 1;
+	let max = 100;
+
+	loop {
+		if i == max {
+			break;
+		}
+
+		if i % 3 == 0 and i % 5 == 0 {
+			print "FizzBuzz\n";
+		}
+		elif i % 3 == 0 {
+			print "Fizz\n";
+		}
+		elif i % 5 == 0 {
+			print "Buzz\n";
+		}
+		else {
+			print i, "\n";
+		}
+
+		i = i + 1;
+	}
+}
