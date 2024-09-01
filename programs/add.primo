@@ -1,0 +1,10 @@
+fn add(a, b) {
+	return a + b;
+}
+
+fn main() {
+	let a = 10;
+	let b = 20;
+	b = 30;
+	print add(a, b), "\n";
+}

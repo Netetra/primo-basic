@@ -10,40 +10,40 @@ pub struct Pair<T> {
 #[derive(Debug, PartialEq, Eq)]
 pub struct FuncDef {
     pub name: String,
-    pub args: Vec<String>,
+    pub arg_idents: Vec<String>,
     pub block: Block,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct FuncCall {
     pub name: String,
-    pub args: Vec<Expr>,
+    pub arg_exprs: Vec<Expr>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct If {
     pub condition: Expr,
     pub block: Block,
-    pub elif: Option<Vec<Elif>>,
+    pub elif_blocks: Option<Vec<Elif>>,
     pub else_block: Option<Block>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Elif {
     pub condition: Expr,
     pub block: Block,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct VarDef {
     pub name: String,
-    pub value: Expr,
+    pub expr: Expr,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Assign {
     pub name: String,
-    pub value: Expr,
+    pub expr: Expr,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -51,7 +51,7 @@ pub enum Component {
     FuncDef(FuncDef),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Stmt {
     VarDef(VarDef),
     Assign(Assign),
@@ -91,4 +91,5 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Str(String),
+    None,
 }

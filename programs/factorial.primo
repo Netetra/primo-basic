@@ -1,8 +1,11 @@
 fn factorial(n) {
+	if n == 1 {
+		return 1;
+	}
 	return n * factorial(n - 1);
 }
 
 fn main() {
-	let n = 7;
-	print n, "! = ", factorial(n);
+	let n = 5;
+	print n, "! = ", factorial(n), "\n";
 }

@@ -11,12 +11,12 @@ peg::parser! {
         pub rule component() -> Component
             = func_def()
         pub rule func_def() -> Component
-            = func_ident() _ i:ident() "(" _ args:(ident() ** (_ "," _)) _ ")" _ b:block()
-                { Component::FuncDef(FuncDef { name:i, args: args, block: b }) }
+            = func_ident() _ name:ident() "(" _ arg_idents:(ident() ** (_ "," _)) _ ")" _ block:block()
+                { Component::FuncDef(FuncDef { name, arg_idents, block }) }
         // TODO: if elif elseの定義のリファクタリング
         pub rule if_stmt() -> Stmt
-            = if_ident() _ e:expr() _ b:block() elif_b:elif_branches()? else_b:else_branch()?
-                { Stmt::If(If { condition: e, block: b, elif: elif_b, else_block: else_b }) }
+            = if_ident() _ condition:expr() _ block:block() elif_blocks:elif_branches()? else_block:else_branch()?
+                { Stmt::If(If { condition, block, elif_blocks, else_block}) }
         rule elif_branches() -> Vec<Elif>
             = elif_branch()+
         rule elif_branch() -> Elif
@@ -26,8 +26,8 @@ peg::parser! {
             = __ else_b:r#else()
                 { else_b }
         rule elif() -> Elif
-            = elif_ident() _ e:expr() _ b:block()
-                { Elif { condition: e, block: b } }
+            = elif_ident() _ condition:expr() _ block:block()
+                { Elif { condition, block } }
         rule r#else() -> Block
             = else_ident() _ b:block()
                 { b }
@@ -54,11 +54,11 @@ peg::parser! {
             = e:expr() _ stmt_end()
                 { Stmt::Expr(e) }
         pub rule var_def() -> Stmt
-            = let_ident() _ i:ident() _ "=" _ e:expr() _ stmt_end()
-                { Stmt::VarDef(VarDef { name: i, value: e }) }
+            = let_ident() _ name:ident() _ "=" _ expr:expr() _ stmt_end()
+                { Stmt::VarDef(VarDef { name: name, expr }) }
         pub rule assign() -> Stmt
-            = i:ident() _ "=" _ e:expr() _ stmt_end()
-                { Stmt::Assign(Assign { name: i, value: e }) }
+            = name:ident() _ "=" _ expr:expr() _ stmt_end()
+                { Stmt::Assign(Assign { name, expr }) }
         pub rule next() -> Stmt
             = next_ident() _ stmt_end()
                 { Stmt::Next }
@@ -69,8 +69,8 @@ peg::parser! {
             = return_ident() _ e:expr()? _ stmt_end()
                 { Stmt::Return(e) }
         pub rule func_call() -> FuncCall
-            = i:ident() "(" args:(expr() ** (_ "," _)) ")"
-                { FuncCall { name: i, args: args } }
+            = name:ident() "(" arg_exprs:(expr() ** (_ "," _)) ")"
+                { FuncCall { name, arg_exprs } }
         pub rule expr() -> Expr
             = precedence! {
                 l:(@) _ or_ident() _ r:@
@@ -192,7 +192,7 @@ mod tests {
     #[case("fn main() {}", vec![
         Component::FuncDef(FuncDef {
             name: "main".to_string(),
-            args: vec![],
+            arg_idents: vec![],
             block: vec![]
         })
     ])]
@@ -202,12 +202,12 @@ mod tests {
         ", vec![
         Component::FuncDef(FuncDef {
             name: "main".to_string(),
-            args: vec![],
+            arg_idents: vec![],
             block: vec![]
         }),
         Component::FuncDef(FuncDef {
             name: "add".to_string(),
-            args: vec![],
+            arg_idents: vec![],
             block: vec![]
         })
     ])]
@@ -221,7 +221,7 @@ mod tests {
         "fn main() {}",
         Component::FuncDef(FuncDef {
             name: "main".to_string(),
-            args: vec![],
+            arg_idents: vec![],
             block: vec![]
         })
     )]
@@ -229,7 +229,7 @@ mod tests {
         "fn main(a, b) {}",
         Component::FuncDef(FuncDef {
             name: "main".to_string(),
-            args: vec![
+            arg_idents: vec![
                 "a".to_string(),
                 "b".to_string()
             ],
@@ -249,11 +249,11 @@ mod tests {
         vec![
             Stmt::VarDef(VarDef {
                 name: "x".to_string(),
-                value: Expr::Literal(Value::Int(0))
+                expr: Expr::Literal(Value::Int(0))
             }),
             Stmt::Assign(Assign {
                 name: "x".to_string(),
-                value: Expr::Literal(Value::Int(1))
+                expr: Expr::Literal(Value::Int(1))
             }),
             Stmt::Return(Some(Expr::Ident("x".to_string())))
         ]
@@ -267,11 +267,11 @@ mod tests {
         vec![
             Stmt::VarDef(VarDef {
                 name: "x".to_string(),
-                value: Expr::Literal(Value::Int(0))
+                expr: Expr::Literal(Value::Int(0))
             }),
             Stmt::Assign(Assign {
                 name: "x".to_string(),
-                value: Expr::Literal(Value::Int(1))
+                expr: Expr::Literal(Value::Int(1))
             }),
             Stmt::Return(Some(Expr::Ident("x".to_string())))
         ]
@@ -304,7 +304,7 @@ mod tests {
         "let x = 1;",
         Stmt::VarDef(VarDef {
             name: "x".to_string(),
-            value: Expr::Literal(Value::Int(1)) 
+            expr: Expr::Literal(Value::Int(1)) 
         })
     )]
     // case 5
@@ -312,7 +312,7 @@ mod tests {
         "x = 1;",
         Stmt::Assign(Assign {
             name: "x".to_string(),
-            value: Expr::Literal(Value::Int(1)) 
+            expr: Expr::Literal(Value::Int(1)) 
         })
     )]
     // case 6
@@ -324,7 +324,7 @@ mod tests {
         Stmt::If(If {
             condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
-            elif: None,
+            elif_blocks: None,
             else_block: None
         })
     )]
@@ -334,7 +334,7 @@ mod tests {
         Stmt::If(If {
             condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
-            elif: None,
+            elif_blocks: None,
             else_block: Some(vec![])
         })
     )]
@@ -344,7 +344,7 @@ mod tests {
         Stmt::If(If {
             condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
-            elif: Some(vec![
+            elif_blocks: Some(vec![
                 Elif {
                     condition: Expr::Literal(Value::Bool(true)),
                     block: vec![]
@@ -359,7 +359,7 @@ mod tests {
         Stmt::If(If {
             condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
-            elif: Some(vec![
+            elif_blocks: Some(vec![
                 Elif {
                     condition: Expr::Literal(Value::Bool(false)),
                     block: vec![]
@@ -378,7 +378,7 @@ mod tests {
         Stmt::If(If {
             condition: Expr::Literal(Value::Bool(false)),
             block: vec![],
-            elif: Some(vec![
+            elif_blocks: Some(vec![
                 Elif {
                     condition: Expr::Literal(Value::Bool(false)),
                     block: vec![]
@@ -410,7 +410,7 @@ mod tests {
         "hoge()",
         FuncCall {
             name: "hoge".to_string(),
-            args: vec![]
+            arg_exprs: vec![]
         }
     )]
     // case 2
@@ -418,7 +418,7 @@ mod tests {
         "add(1, 2)",
         FuncCall {
             name: "add".to_string(),
-            args: vec![
+            arg_exprs: vec![
                 Expr::Literal(Value::Int(1)),
                 Expr::Literal(Value::Int(2))
             ]
@@ -429,10 +429,10 @@ mod tests {
         "add(add(1, 2), 3)",
         FuncCall {
             name: "add".to_string(),
-            args: vec![
+            arg_exprs: vec![
                 Expr::FuncCall(FuncCall {
                     name: "add".to_string(),
-                    args: vec![
+                    arg_exprs: vec![
                         Expr::Literal(Value::Int(1)),
                         Expr::Literal(Value::Int(2)),
                     ]
