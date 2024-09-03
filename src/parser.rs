@@ -126,7 +126,6 @@ peg::parser! {
                 { Value::Bool(true) }
             / "false"
                 { Value::Bool(false) }
-        // FIXME: 予約済みのキーワードが許可されてる
         pub rule ident() -> String
             = reserved_words()
                 {? Err("this word is reserved") }
